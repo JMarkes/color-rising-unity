@@ -1,0 +1,118 @@
+﻿using UnityEngine;
+using UnityEngine.UI;
+using System.Collections;
+
+public class Player : MonoBehaviour {
+
+	public AudioClip jewelPickUpSound;
+	public AudioClip shieldPickUpSound;
+	public AudioClip shieldDestroyedSound;
+
+	private SpriteRenderer sprite;
+	private bool invincible = false;
+	private bool shieldUp = false;
+
+	void Start() {
+		sprite = GetComponent<SpriteRenderer>();
+		StartCoroutine(InitialRiseCoroutine(new Vector3(transform.position.x, -150, 0), 3));
+	}
+
+	void OnTriggerEnter2D (Collider2D coll) {
+		if (coll.tag == "Block") {
+			if (invincible) return;		
+	
+			if (shieldUp) {
+				shieldUp = false;
+				SoundManager.instance.PlaySingle(shieldDestroyedSound);
+				GameManager.instance.DestroyShield();
+				StartCoroutine(GameManager.instance.AddInvincibility());
+			} else {
+				GameManager.instance.GameOver();
+			}
+		}
+		if (coll.tag == "Jewel") {
+			SoundManager.instance.PlaySingle(jewelPickUpSound);
+			GameManager.instance.UpdateScore();
+			Destroy(coll.gameObject);
+		}
+		if (coll.tag == "Shield") {
+			if (!shieldUp) {
+				shieldUp = true;
+				SoundManager.instance.PlaySingle(shieldPickUpSound);
+				GameManager.instance.AddShield();
+			}
+			Destroy(coll.gameObject);
+		}
+    }
+
+	private IEnumerator MoveCoroutine(Vector3 end, float speed, bool moveRight) {
+
+		if (moveRight) {
+			transform.Rotate(Vector3.forward * -30);
+		} else {
+			transform.Rotate(Vector3.forward * 30);
+		}
+
+		while (true) {
+			transform.position = Vector3.MoveTowards(transform.position, end, speed);
+			
+			// If the object has arrived, stop the coroutine
+			if (transform.position == end) {
+				if (moveRight) {
+					transform.Rotate(Vector3.forward * 30);
+				} else {
+					transform.Rotate(Vector3.forward * -30);
+				}
+				yield break;
+			}
+			
+			// Otherwise, continue next frame
+			yield return null;
+		}
+	}
+
+	private IEnumerator InitialRiseCoroutine(Vector3 end, float speed) {
+		while (true) {
+			transform.position = Vector3.MoveTowards(transform.position, end, speed);
+			
+			// If the object has arrived, stop the coroutine
+			if (transform.position == end) {
+				GameManager.instance.disableInput = false;
+				GameManager.instance.state = GameManager.GameState.GAMEPLAY;
+				yield break;
+			}
+			
+			// Otherwise, continue next frame
+			yield return null;
+		}
+	}
+
+	public void SetInvincible(bool status) {
+		invincible = status;
+	}
+
+	private int RandomSign() {
+    	return Random.value < 0.5f ? 1 : -1;
+	}
+
+	// Update is called once per frame
+	void Update () {
+
+		if(GameManager.instance.disableInput) return;
+
+		if ((Input.GetMouseButtonDown(0)) || (Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began)) {
+			if (transform.position.x == -60) {		
+					StartCoroutine(MoveCoroutine(new Vector3(60,-150,0), 40, true));
+			} else {
+					StartCoroutine(MoveCoroutine(new Vector3(-60,-150,0), 40, false));
+			}
+		}
+
+		if (invincible) {
+			float a = Mathf.PingPong (Time.time / 0.1f, 1.0f);
+			sprite.color = new Color(1,1,1,a);
+		} else {
+			sprite.color = new Color(1,1,1,1);
+		}
+	}
+}
